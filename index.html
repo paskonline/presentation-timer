@@ -3,175 +3,224 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DOMSRS '26 Competition Timer</title>
+    <title>DOMSRS'26 | 3MT Competition</title>
     <style>
         :root {
             --neon-green: #00ff41;
-            --warning-orange: #ffcc00;
-            --critical-red: #ff4141;
+            --warning-orange: #ffaa00;
+            --critical-red: #ff3131;
         }
 
         body, html {
             margin: 0; padding: 0;
             height: 100vh; width: 100vw;
             overflow: hidden; background-color: #000;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: url('background.png') no-repeat center center fixed;
+            background-size: cover;
+            /* Priority: Myriad Pro font as requested */
+            font-family: "Myriad Pro", Myriad, "Segoe UI", Tahoma, sans-serif;
+            color: white;
         }
 
         #bg-video {
             position: fixed; right: 0; bottom: 0;
             min-width: 100%; min-height: 100%;
             z-index: -1; object-fit: cover;
-            filter: brightness(0.5);
-            display: block;
+            filter: brightness(0.45);
         }
 
-        .timer-container {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
+        /* TIMER BOX - Located in your drawn area (Bottom Center) */
+        .timer-box {
+            position: absolute;
+            bottom: 8%; /* Moves it down to your drawn area */
+            left: 50%;
+            transform: translateX(-50%);
             text-align: center;
-            background: rgba(0, 0, 0, 0.75);
-            padding: 40px 80px; border-radius: 20px;
-            border: 2px solid var(--neon-green);
+            background: rgba(0, 0, 0, 0.85);
+            padding: 30px 60px;
+            border-radius: 25px;
+            border: 3px solid var(--neon-green);
             box-shadow: 0 0 30px rgba(0, 255, 65, 0.2);
-            backdrop-filter: blur(12px);
-            transition: all 0.8s ease-in-out;
-            min-width: 450px;
+            backdrop-filter: blur(15px);
+            transition: all 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            min-width: 500px;
+            z-index: 10;
         }
+
+        h1 { font-size: 2.5rem; margin: 0; letter-spacing: 1px; font-weight: 700; }
+        h2 { font-size: 1.2rem; color: var(--neon-green); margin: 5px 0 15px 0; text-transform: uppercase; letter-spacing: 4px; }
 
         #timer {
-            font-size: 9rem; font-weight: 800; margin: 15px 0;
-            color: var(--neon-green); font-variant-numeric: tabular-nums;
-            text-shadow: 0 0 15px var(--neon-green);
-            transition: all 0.6s ease;
+            font-size: 9rem;
+            font-weight: 800;
+            margin: 10px 0;
+            color: var(--neon-green);
+            font-variant-numeric: tabular-nums;
+            text-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+            transition: all 0.5s ease;
         }
+
+        #message {
+            font-size: 3.5rem;
+            color: var(--critical-red);
+            font-weight: bold;
+            display: none;
+            text-transform: uppercase;
+            text-shadow: 0 0 20px rgba(255, 49, 49, 0.5);
+        }
+
+        .controls { margin-top: 15px; }
 
         button.main-btn {
-            padding: 15px 45px; font-size: 1.1rem; font-weight: bold;
-            text-transform: uppercase; background-color: var(--neon-green);
-            color: #000; border: none; border-radius: 50px; cursor: pointer;
+            padding: 12px 35px;
+            font-size: 1rem;
+            font-weight: bold;
+            background: var(--neon-green);
+            color: black;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: 0.3s;
+            text-transform: uppercase;
         }
 
-        /* Fullscreen Button */
-        .fs-toggle {
-            position: fixed; bottom: 30px; right: 30px;
-            width: 44px; height: 44px;
-            background: rgba(40, 40, 40, 0.8);
+        /* --- LOGIC STATES --- */
+
+        /* Stage 2: Orange (2:00 - 1:00) */
+        .state-orange #timer { color: var(--warning-orange) !important; }
+        .state-orange .timer-box { border-color: var(--warning-orange); }
+        .state-orange h2 { color: var(--warning-orange); }
+
+        /* Stage 3: Red (1:00 - 0:30) */
+        .state-red #timer { color: var(--critical-red) !important; }
+        .state-red .timer-box { border-color: var(--critical-red); }
+        .state-red h2 { color: var(--critical-red); }
+
+        /* Stage 4: ISOLATE & BIG (Final 30s) */
+        .state-isolate #branding, .state-isolate .controls { display: none; }
+        .state-isolate .timer-box {
+            bottom: 50%; /* Jumps to the center */
+            transform: translate(-50%, 50%);
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            backdrop-filter: none;
+        }
+        .state-isolate #timer {
+            font-size: 30rem;
+            color: var(--critical-red) !important;
+            text-shadow: 0 0 50px var(--critical-red);
+        }
+
+        /* End Session */
+        .time-over .timer-box { bottom: 50%; transform: translate(-50%, 50%); }
+
+        .fs-btn {
+            position: fixed; bottom: 20px; right: 20px;
+            background: rgba(255,255,255,0.05);
             border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 50%; cursor: pointer;
-            display: flex; justify-content: center; align-items: center; z-index: 100;
+            border-radius: 5px; width: 35px; height: 35px;
+            cursor: pointer; display: flex; justify-content: center; align-items: center;
         }
-
-        /* Troubleshooting Button - Only shows if video fails */
-        #video-error-btn {
-            position: fixed; top: 10px; left: 10px;
-            background: red; color: white; border: none;
-            padding: 5px 10px; border-radius: 5px; display: none; z-index: 200;
-        }
-
-        /* --- COMPETITION STATES --- */
-        .state-warn #timer { color: var(--warning-orange); text-shadow: 0 0 20px var(--warning-orange); }
-        .state-critical h1, .state-critical .controls { opacity: 0; pointer-events: none; }
-        .state-critical .timer-container { background: transparent; border: none; backdrop-filter: none; box-shadow: none; }
-        .state-critical #timer { font-size: 30rem; color: var(--critical-red); text-shadow: 0 0 50px var(--critical-red); }
-
-        .time-up { animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0.2; } }
     </style>
 </head>
 <body>
 
-    <button id="video-error-btn" onclick="retryVideo()">Video Not Playing? Click Here</button>
-
-    <video autoplay muted loop playsinline id="bg-video">
-        <source src="./background.mp4" type="video/mp4">
+    <video autoplay muted loop playsinline poster="background.png" id="bg-video">
+        <source src="background.mp4" type="video/mp4">
     </video>
 
-    <div class="timer-container" id="container">
-        <h1>Presentation Time</h1>
+    <div class="timer-box" id="box">
+        <div id="branding">
+            <h1>DOMSRS'26</h1>
+            <h2>3MT Competition</h2>
+        </div>
+
         <div id="timer">03:00</div>
+        <div id="message">Your 3MT is over</div>
+
         <div class="controls">
-            <button id="startBtn" class="main-btn" onclick="toggleTimer()">Start Session</button>
-            <button id="start-again-btn" class="main-btn" style="display:none" onclick="resetTimer()">Start Again</button>
+            <button id="actionBtn" class="main-btn" onclick="toggleTimer()">Start Session</button>
+            <button id="resetBtn" class="main-btn" style="display:none" onclick="resetTimer()">Start Again</button>
         </div>
     </div>
 
-    <div class="fs-toggle" onclick="toggleFullscreen()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 15v6h-6M3 9V3h6"/></svg>
-    </div>
+    <button class="fs-btn" onclick="toggleFS()" title="Toggle Fullscreen">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 15v6h-6M3 9V3h6"/></svg>
+    </button>
 
     <script>
         let timeLeft = 180;
-        let timerId = null;
-        let isRunning = false;
+        let ticker = null;
+        let active = false;
+
+        const timerDisp = document.getElementById('timer');
+        const msgDisp = document.getElementById('message');
+        const box = document.getElementById('box');
         const video = document.getElementById('bg-video');
-        const display = document.getElementById('timer');
-        const container = document.getElementById('container');
+        const actionBtn = document.getElementById('actionBtn');
+        const resetBtn = document.getElementById('resetBtn');
 
-        // Check if video is actually loading
-        video.addEventListener('error', function() {
-            document.getElementById('video-error-btn').style.display = 'block';
-            console.error("Video failed to load. Check filename and unblock settings.");
-        });
+        function updateUI() {
+            let m = Math.floor(timeLeft / 60);
+            let s = timeLeft % 60;
+            timerDisp.textContent = `${m}:${s < 10 ? '0'+s : s}`;
 
-        function retryVideo() {
-            video.load();
-            video.play();
+            // Reset classes
+            document.body.className = "";
+
+            // Stage Logic
+            if (timeLeft <= 120 && timeLeft > 60) {
+                document.body.classList.add('state-orange');
+            } else if (timeLeft <= 60 && timeLeft > 30) {
+                document.body.classList.add('state-red');
+            } else if (timeLeft <= 30 && timeLeft > 0) {
+                document.body.classList.add('state-isolate', 'state-red');
+            }
+
+            // Time Over
+            if (timeLeft <= 0) {
+                clearInterval(ticker);
+                document.body.className = "time-over";
+                timerDisp.style.display = 'none';
+                msgDisp.style.display = 'block';
+                actionBtn.style.display = 'none';
+                resetBtn.style.display = 'inline-block';
+            }
         }
 
         function toggleTimer() {
-            // Browsers need a click to play video
             video.play();
-            
-            if (isRunning) {
-                clearInterval(timerId);
-                document.getElementById('startBtn').textContent = "Continue";
-                isRunning = false;
+            if (active) {
+                clearInterval(ticker);
+                actionBtn.textContent = "Continue";
             } else {
-                isRunning = true;
-                document.getElementById('startBtn').textContent = "Pause";
-                timerId = setInterval(() => {
+                actionBtn.textContent = "Pause";
+                ticker = setInterval(() => {
                     timeLeft--;
-                    updateDisplay();
+                    updateUI();
                 }, 1000);
             }
-        }
-
-        function updateDisplay() {
-            const m = Math.floor(timeLeft / 60);
-            const s = timeLeft % 60;
-            display.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-
-            if (timeLeft <= 120 && timeLeft > 30) container.classList.add('state-warn');
-            else container.classList.remove('state-warn');
-
-            if (timeLeft <= 30 && timeLeft > 0) container.classList.add('state-critical');
-            else container.classList.remove('state-critical');
-
-            if (timeLeft <= 0) {
-                clearInterval(timerId);
-                display.textContent = "00:00";
-                display.classList.add('time-up');
-                container.classList.remove('state-critical');
-                document.getElementById('startBtn').style.display = 'none';
-                document.getElementById('start-again-btn').style.display = 'inline-block';
-            }
+            active = !active;
         }
 
         function resetTimer() {
-            timeLeft = 180; isRunning = false;
-            clearInterval(timerId);
-            display.classList.remove('time-up');
-            document.getElementById('startBtn').style.display = 'inline-block';
-            document.getElementById('startBtn').textContent = "Start Session";
-            document.getElementById('start-again-btn').style.display = 'none';
-            updateDisplay();
+            timeLeft = 180;
+            active = false;
+            clearInterval(ticker);
+            timerDisp.style.display = 'block';
+            msgDisp.style.display = 'none';
+            actionBtn.style.display = 'inline-block';
+            actionBtn.textContent = "Start Session";
+            resetBtn.style.display = 'none';
+            document.body.className = "";
+            updateUI();
         }
 
-        window.addEventListener('keydown', (e) => { if (e.code === "Space") { e.preventDefault(); toggleTimer(); } });
-
-        function toggleFullscreen() {
-            video.play();
+        // Spacebar Control
+        window.onkeydown = (e) => { if(e.code === "Space") { e.preventDefault(); toggleTimer(); } };
+        
+        function toggleFS() {
             if (!document.fullscreenElement) document.documentElement.requestFullscreen();
             else document.exitFullscreen();
         }
